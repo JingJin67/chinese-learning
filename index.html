@@ -160,6 +160,8 @@
   .name-in:focus{outline:none;border-color:var(--bamboo);}
   .save-row .btn{width:auto;flex:0 0 auto;}
   .save-msg{font-family:'Baloo 2';font-weight:700;font-size:14px;margin-top:8px;min-height:18px;}
+  .fmt{background:#FFFDF5;border:2px solid var(--soft);border-radius:12px;padding:10px;font-family:'Noto Sans SC',monospace;font-size:13px;white-space:pre-wrap;color:var(--ink);overflow-x:auto;}
+  code{background:#FFF0D8;border-radius:5px;padding:1px 5px;font-weight:800;}
   .say-prompt{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:18px;margin-bottom:10px;}
   .say-cue{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:20px;text-align:center;margin-top:18px;}
   .reveal{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .35s ease;}
@@ -204,8 +206,11 @@ if(micSupported){
 
 /* ============ AUDIO ============ */
 let actx=null;
+let soundOn = (function(){ try{ return localStorage.getItem('cf_sound')!=='off'; }catch(e){ return true; } })();
+function toggleSound(){ soundOn=!soundOn; try{ localStorage.setItem('cf_sound', soundOn?'on':'off'); }catch(e){} }
 function ac(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
 function chime(){
+  if(!soundOn) return;
   const c=ac(); const now=c.currentTime;
   [[523,0],[659,.12],[784,.24],[1047,.36]].forEach(([f,t])=>{
     const o=c.createOscillator(),g=c.createGain();
@@ -216,6 +221,7 @@ function chime(){
   });
 }
 function softTry(){
+  if(!soundOn) return;
   const c=ac(); const now=c.currentTime;
   const o=c.createOscillator(),g=c.createGain();
   o.type='sine';o.frequency.setValueAtTime(380,now);o.frequency.linearRampToValueAtTime(300,now+.18);
@@ -286,19 +292,19 @@ function render(){
 }
 
 function renderHome(){
-  const store = loadStore();
-  const names = Object.keys(store);
+  const names = Object.keys(LISTS);
+  const stars = loadStars();
   const starRow=(label,count,got)=> count? `<span class="starsec">${label} ${'★'.repeat(got)}${'☆'.repeat(3-got)}</span>` : '';
   const savedHTML = names.length ? names.map(n=>{
-      const rec=store[n]||{};
+      const rec=LISTS[n]||{};
       const wc=parseLines(rec.words||'').length, sc=parseLines(rec.sentences||'').length;
-      const sw=(rec.stars&&rec.stars.words)||0, ss=(rec.stars&&rec.stars.sentences)||0;
+      const st=stars[n]||{}; const sw=st.words||0, ss=st.sentences||0;
       return `
       <label class="saved-row">
         <input type="checkbox" class="lchk" value="${encodeURIComponent(n)}">
         <span class="lname">${n}<span class="starline">${starRow('📚',wc,sw)} ${starRow('💬',sc,ss)}</span></span>
       </label>`;
-    }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists yet. Tap ⚙️ For parents to add one — or just tap Flashcards to try the sample.</p>`;
+    }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists yet. Tap ⚙️ For parents to set up lists.txt — or just tap Flashcards to try the sample.</p>`;
 
   app.innerHTML = `
     <div class="home-hero">
@@ -329,11 +335,11 @@ function renderHome(){
 function prepSelected(msgId){
   ac();
   const picks=[...document.querySelectorAll('.lchk:checked')].map(c=>decodeURIComponent(c.value));
-  const st=loadStore(); const have=Object.keys(st).length;
+  const have=Object.keys(LISTS).length;
   let W=[], S=[];
   if(picks.length){
-    picks.forEach(n=>{ if(st[n]){ W=W.concat(parseLines(st[n].words)); S=S.concat(parseLines(st[n].sentences)); } });
-    state.activeListName = picks.length===1 ? picks[0] : null;  // stars only for a single list
+    picks.forEach(n=>{ if(LISTS[n]){ W=W.concat(parseLines(LISTS[n].words)); S=S.concat(parseLines(LISTS[n].sentences)); } });
+    state.activeListName = picks.length===1 ? picks[0] : null;
   } else if(have){
     notice(msgId,'Tick a list first 🙂'); return false;
   } else {
@@ -349,16 +355,13 @@ function startPlay(){
 }
 function notice(id,m){ const el=document.getElementById(id); if(el){ el.textContent=m; el.style.color='#b08400'; } }
 
-/* ============ PARENT: make & edit lists ============ */
+/* ============ PARENT: lists come from lists.txt on GitHub ============ */
 function renderParent(){
-  const store = loadStore();
-  const names = Object.keys(store);
-  const savedHTML = names.length ? names.map(n=>`
-      <div class="saved-row">
-        <span class="lname">${n}</span>
-        <button class="ledit" data-n="${encodeURIComponent(n)}" title="edit">✏️</button>
-        <button class="ldel" data-n="${encodeURIComponent(n)}" title="delete">✕</button>
-      </div>`).join('') : `<p class="hint" style="margin:6px 0 0;">No saved lists yet.</p>`;
+  const names = Object.keys(LISTS);
+  const savedHTML = names.length ? names.map(n=>{
+      const wc=parseLines(LISTS[n].words||'').length, sc=parseLines(LISTS[n].sentences||'').length;
+      return `<div class="saved-row"><span class="lname">${n} <span class="hint" style="font-weight:700;">(${wc} words, ${sc} sentences)</span></span></div>`;
+    }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists loaded. Add a lists.txt file to your GitHub repo (see below).</p>`;
 
   app.innerHTML = `
     <div class="topbar">
@@ -368,8 +371,19 @@ function renderParent(){
     </div>
 
     <div class="panel" style="margin-top:16px;">
-      <h2>📂 Saved lists</h2>
+      <h2>📂 Current lists</h2>
       <div id="savedManage">${savedHTML}</div>
+    </div>
+
+    <div class="panel">
+      <h2>✏️ How to update lists</h2>
+      <p class="hint">Edit the <b>lists.txt</b> file in your GitHub repo. Saved changes show up the next time he opens the link.</p>
+      <p class="hint" style="margin-top:8px;">Format — <code>#</code> names a list, <code>---</code> splits words from sentences:</p>
+      <pre class="fmt"># Week 5
+你好 | nǐ hǎo | hello
+谢谢 | xièxie | thank you
+---
+我喜欢苹果 | wǒ xǐhuan píngguǒ | I like apples</pre>
     </div>
 
     <div class="panel">
@@ -380,26 +394,10 @@ function renderParent(){
         <button class="btn small" id="testVoice">▶ Test</button>
       </div>
     </div>
-
-    <div class="panel" id="setup">
-      <h2>✏️ New / edit list</h2>
-      <p class="hint">One per line. Format:  汉字 | pīnyīn | english  (pinyin & english optional)</p>
-      <label class="fld">📚 Words</label>
-      <textarea id="wbox">${SAMPLE_WORDS}</textarea>
-      <label class="fld">💬 Sentences</label>
-      <textarea id="sbox">${SAMPLE_SENTENCES}</textarea>
-      <div class="save-row">
-        <input id="listName" class="name-in" placeholder="List name (e.g. Week 5)">
-        <button class="btn small" id="saveBtn">💾 Save</button>
-      </div>
-      <div id="saveMsg" class="save-msg"></div>
-      <button class="btn ghost small" id="tryBtn" style="margin-top:10px;">▶ Try this list now</button>
-    </div>
   `;
 
   document.getElementById('backBtn').onclick=()=>{ state.screen='home'; render(); };
 
-  // voice picker
   const vsel=document.getElementById('voiceSel');
   const zv=zhVoices();
   if(vsel){
@@ -407,43 +405,36 @@ function renderParent(){
       vsel.innerHTML = zv.map(v=>`<option value="${v.name}" ${v.name===chosenVoiceName?'selected':''}>${v.name}</option>`).join('');
     } else {
       vsel.innerHTML = `<option value="">No Chinese voice found on this device</option>`;
-      const vh=document.getElementById('voiceHint'); if(vh) vh.textContent='No Chinese voice is installed yet. On the tablet: Settings → Accessibility → Text-to-speech → Google TTS → Install voice data → Chinese.';
+      const vh=document.getElementById('voiceHint'); if(vh) vh.textContent='No Chinese voice installed yet: Settings → Accessibility → Text-to-speech → Google TTS → Install voice data → Chinese.';
     }
     vsel.onchange=()=>{ setVoice(vsel.value); say('你好'); };
   }
   document.getElementById('testVoice').onclick=()=>{ ac(); if(vsel&&vsel.value) setVoice(vsel.value); say('你好，我们一起学中文'); };
-  document.getElementById('saveBtn').onclick=()=>{
-    ac();
-    const name=document.getElementById('listName').value.trim();
-    const w=document.getElementById('wbox').value, s=document.getElementById('sbox').value;
-    if(!name){ saveMsg('Please type a list name first.',false); return; }
-    if(!parseLines(w).length && !parseLines(s).length){ saveMsg('Add some words or sentences first.',false); return; }
-    const st=loadStore(); st[name]={words:w, sentences:s};
-    if(saveStore(st)){ saveMsg('Saved "'+name+'" ✓',true); setTimeout(render,700); }
-    else saveMsg('Saving works once opened from your web link (not in this preview).',false);
-  };
-  document.getElementById('tryBtn').onclick=()=>{
-    ac();
-    state.words=parseLines(document.getElementById('wbox').value);
-    state.sentences=parseLines(document.getElementById('sbox').value);
-    if(!state.words.length && !state.sentences.length){ saveMsg('Add some words first.',false); return; }
-    state.activeListName=null;
-    deck.which='all'; buildDeck(); state.screen='cards'; render();
-  };
-  document.querySelectorAll('.ledit').forEach(b=> b.onclick=()=>{
-    const n=decodeURIComponent(b.dataset.n); const st=loadStore();
-    if(st[n]){ document.getElementById('wbox').value=st[n].words||''; document.getElementById('sbox').value=st[n].sentences||''; document.getElementById('listName').value=n; saveMsg('Editing "'+n+'" — change it and Save.',true); window.scrollTo(0,document.body.scrollHeight); }
-  });
-  document.querySelectorAll('.ldel').forEach(b=> b.onclick=()=>{
-    const n=decodeURIComponent(b.dataset.n);
-    if(confirm('Delete saved list "'+n+'"?')){ const st=loadStore(); delete st[n]; saveStore(st); render(); }
-  });
 }
-function saveMsg(m,ok){ const el=document.getElementById('saveMsg'); if(el){ el.textContent=m; el.style.color= ok?'#2E8159':'#b08400'; } }
 
-/* device storage (works on hosted link; degrades quietly in preview) */
-function loadStore(){ try{ return JSON.parse(localStorage.getItem('cf_lists')||'{}'); }catch(e){ return {}; } }
-function saveStore(o){ try{ localStorage.setItem('cf_lists', JSON.stringify(o)); return true; }catch(e){ return false; } }
+/* ============ lists.txt (shared source) + per-device stars ============ */
+let LISTS = {};
+function parseListsTxt(txt){
+  const out={}; let cur=null, sec='words';
+  txt.split(/\r?\n/).forEach(line=>{
+    const t=line.trim(); if(!t) return;
+    if(t.charAt(0)==='#'){ cur=t.replace(/^#+/,'').trim(); out[cur]={words:'',sentences:''}; sec='words'; return; }
+    if(t==='---'){ sec='sentences'; return; }
+    if(!cur){ cur='List 1'; out[cur]={words:'',sentences:''}; }
+    out[cur][sec] += (out[cur][sec]?'\n':'') + t;
+  });
+  return out;
+}
+function fetchLists(cb){
+  if(typeof fetch!=='function'){ cb&&cb(); return; }
+  fetch('lists.txt',{cache:'no-store'})
+    .then(r=> r.ok ? r.text() : Promise.reject())
+    .then(txt=>{ const p=parseListsTxt(txt); if(Object.keys(p).length) LISTS=p; })
+    .catch(()=>{})
+    .finally(()=>{ cb&&cb(); });
+}
+function loadStars(){ try{ return JSON.parse(localStorage.getItem('cf_stars')||'{}'); }catch(e){ return {}; } }
+function saveStarsStore(o){ try{ localStorage.setItem('cf_stars', JSON.stringify(o)); return true; }catch(e){ return false; } }
 
 function loadLists(){
   ac(); // unlock audio on user gesture
@@ -556,12 +547,11 @@ function flagMiss(){
 function starsFor(miss,total){ if(!total) return null; if(miss===0) return 3; if(miss/total<=1/3) return 2; return 1; }
 function saveStars(){
   if(!state.activeListName) return;
-  const st=loadStore(); const rec=st[state.activeListName]; if(!rec) return;
-  rec.stars = rec.stars || {};
+  const st=loadStars(); const rec=st[state.activeListName]||(st[state.activeListName]={});
   const sw=starsFor(deck.missW, deck.totalW), ss=starsFor(deck.missS, deck.totalS);
-  if(sw!==null) rec.stars.words = Math.max(rec.stars.words||0, sw);
-  if(ss!==null) rec.stars.sentences = Math.max(rec.stars.sentences||0, ss);
-  saveStore(st);
+  if(sw!==null) rec.words = Math.max(rec.words||0, sw);
+  if(ss!==null) rec.sentences = Math.max(rec.sentences||0, ss);
+  saveStarsStore(st);
 }
 function deckCur(){ return deck.queue[deck.pos]; }
 
@@ -602,6 +592,7 @@ function renderCards(){
     <div class="topbar">
       <button class="home-link display" id="homeBtn">🏠</button>
       <div class="pill" style="font-size:15px;">${inRedo?'🔁 Redo round':'🃏 Flashcards'}</div>
+      <button class="home-link display" id="soundBtn">${soundOn?'🔊':'🔇'}</button>
       <button class="home-link display" id="shufBtn">🔀</button>
     </div>
 
@@ -637,6 +628,7 @@ function renderCards(){
     <p class="hint" style="text-align:center;margin-top:12px;">${item._flagged?'Missed once — comes back in the redo round 🔁':'Say the whole thing correctly to move on ⭐'}</p>
   `;
   document.getElementById('homeBtn').onclick=()=>{ stopDeckMic(); state.screen='home'; render(); };
+  document.getElementById('soundBtn').onclick=()=>{ toggleSound(); render(); };
   document.getElementById('shufBtn').onclick=()=>{ stopDeckMic(); shuffleDeck(); render(); armDeckMic(); };
   document.querySelectorAll('.seg').forEach(b=> b.onclick=()=>{
     if(b.hasAttribute('disabled')) return;
@@ -763,6 +755,7 @@ function burst(n=80){
 }
 
 render();
+fetchLists(render);
 </script>
 </body>
 </html>
