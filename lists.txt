@@ -1,20 +1,38 @@
-# Week 1
-你好 | nǐ hǎo | hello
-谢谢 | xièxie | thank you
-朋友 | péngyou | friend
-学校 | xuéxiào | school
-苹果 | píngguǒ | apple
-喜欢 | xǐhuan | to like
+# Lesson 1
+穿毛衣
+裙子
+袜子
+鞋子
+拖鞋
+所以
+条
+双
+短
+长
 ---
-我喜欢我的朋友 | wǒ xǐhuan wǒ de péngyou | I like my friend
-今天我去学校 | jīntiān wǒ qù xuéxiào | Today I go to school
-我想吃一个苹果 | wǒ xiǎng chī yí ge píngguǒ | I want to eat an apple
+那个穿着蓝色毛衣，戴着白色发卡的人是我的中文老师。
+地下室的沙发上有一双手套，是我朋友的，她忘在我家了。
+外边的雪很大，你开车的时候要小心！就算路上车不多、人不多，也要小心。不要一边开车一边戴着耳机听歌。
 
-# Week 2
-老师 | lǎoshī | teacher
-同学 | tóngxué | classmate
-喜欢 | xǐhuan | to like
-看书 | kàn shū | to read
+# Lesson 2
+脱掉
+外套
+雪服
+雪裤
+内裤
+背心
+羽绒服
+靴子
 ---
-老师喜欢看书 | lǎoshī xǐhuan kàn shū | The teacher likes reading
-我的同学很好 | wǒ de tóngxué hěn hǎo | My classmate is very nice
+
+# Lesson 3
+戴
+帽子
+手套
+围巾
+口罩
+眼罩
+铲雪
+雪铲
+铲雪机
+--
