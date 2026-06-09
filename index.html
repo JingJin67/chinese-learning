@@ -171,7 +171,7 @@
   .reveal.show{max-height:180px;opacity:1;margin-top:10px;}
   .warn{font-size:13px;color:#b08400;background:#FFF6DD;border-radius:12px;padding:10px 12px;margin-top:14px;font-weight:700;text-align:center;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
+<script src="pinyin-map.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -270,6 +270,13 @@ function similar(target, heard){
   return hit/t.length;
 }
 function toPinyin(s){
+  if(!s) return '';
+  const map=window.PYMAP;
+  if(map){
+    let out='';
+    for(const ch of s){ if(map[ch]) out+=map[ch]; else if(/[a-zA-Z]/.test(ch)) out+=ch.toLowerCase(); }
+    if(out) return out;
+  }
   try{ if(window.pinyinPro&&window.pinyinPro.pinyin) return window.pinyinPro.pinyin(s,{toneType:'none',type:'string'}).replace(/\s/g,'').toLowerCase(); }catch(e){}
   return '';
 }
@@ -287,8 +294,8 @@ function isMatch(target, alternatives, allowSound){
 }
 
 /* ============ PARSE ============ */
-function parseLines(text){
-  return text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+function parseLines(text, splitCommas){
+  return (text||'').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
     const p=l.split('|').map(x=>x.trim());
     return {hanzi:p[0]||'', pinyin:p[1]||'', en:p[2]||''};
   }).filter(x=>x.hanzi);
@@ -310,7 +317,7 @@ function renderHome(){
   const starRow=(label,count,got)=> count? `<span class="starsec">${label} ${'★'.repeat(got)}${'☆'.repeat(3-got)}</span>` : '';
   const savedHTML = names.length ? names.map(n=>{
       const rec=LISTS[n]||{};
-      const wc=parseLines(rec.words||'').length, sc=parseLines(rec.sentences||'').length;
+      const wc=parseLines(rec.words||'',true).length, sc=parseLines(rec.sentences||'').length;
       const st=stars[n]||{}; const sw=st.words||0, ss=st.sentences||0;
       return `
       <label class="saved-row">
@@ -366,12 +373,12 @@ function prepSelected(msgId){
   const have=Object.keys(LISTS).length;
   let W=[], S=[];
   if(picks.length){
-    picks.forEach(n=>{ if(LISTS[n]){ W=W.concat(parseLines(LISTS[n].words)); S=S.concat(parseLines(LISTS[n].sentences)); } });
+    picks.forEach(n=>{ if(LISTS[n]){ W=W.concat(parseLines(LISTS[n].words,true)); S=S.concat(parseLines(LISTS[n].sentences)); } });
     state.activeListName = picks.length===1 ? picks[0] : null;
   } else if(have){
     notice(msgId,'Tick a list first 🙂'); return false;
   } else {
-    W=parseLines(SAMPLE_WORDS); S=parseLines(SAMPLE_SENTENCES); state.activeListName=null;
+    W=parseLines(SAMPLE_WORDS,true); S=parseLines(SAMPLE_SENTENCES); state.activeListName=null;
   }
   if(!W.length && !S.length){ notice(msgId,'That list is empty.'); return false; }
   state.words=W; state.sentences=S; return true;
@@ -387,7 +394,7 @@ function notice(id,m){ const el=document.getElementById(id); if(el){ el.textCont
 function renderParent(){
   const names = Object.keys(LISTS);
   const savedHTML = names.length ? names.map(n=>{
-      const wc=parseLines(LISTS[n].words||'').length, sc=parseLines(LISTS[n].sentences||'').length;
+      const wc=parseLines(LISTS[n].words||'',true).length, sc=parseLines(LISTS[n].sentences||'').length;
       return `<div class="saved-row"><span class="lname">${n} <span class="hint" style="font-weight:700;">(${wc} words, ${sc} sentences)</span></span></div>`;
     }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists loaded. Add a lists.txt file to your GitHub repo (see below).</p>`;
 
@@ -415,6 +422,17 @@ function renderParent(){
     </div>
 
     <div class="panel">
+      <h2>⚡ Quick practice (not saved)</h2>
+      <p class="hint">Type a few words/sentences for a one-off practice. One per line: 汉字 | pīnyīn | english</p>
+      <label class="fld">📚 Words</label>
+      <textarea id="tmpW" placeholder="你好 | nǐ hǎo | hello"></textarea>
+      <label class="fld">💬 Sentences</label>
+      <textarea id="tmpS" placeholder="我喜欢苹果 | wǒ xǐhuan píngguǒ | I like apples"></textarea>
+      <button class="btn green small" id="tmpGo" style="margin-top:10px;">▶ Practice now</button>
+      <div id="tmpMsg" class="save-msg"></div>
+    </div>
+
+    <div class="panel">
       <h2>🔊 Voice</h2>
       <p class="hint" id="voiceHint">Pick a Chinese voice. For better quality, install Google TTS Chinese voices in the tablet's Settings.</p>
       <div class="save-row">
@@ -425,6 +443,13 @@ function renderParent(){
   `;
 
   document.getElementById('backBtn').onclick=()=>{ state.screen='home'; render(); };
+  document.getElementById('tmpGo').onclick=()=>{
+    ac();
+    const W=parseLines(document.getElementById('tmpW').value,true), S=parseLines(document.getElementById('tmpS').value);
+    if(!W.length && !S.length){ const el=document.getElementById('tmpMsg'); if(el){ el.textContent='Type at least one word or sentence.'; el.style.color='#b08400'; } return; }
+    state.words=W; state.sentences=S; state.activeListName=null; // temporary: no stars saved
+    deck.which='all'; buildDeck(); state.screen='cards'; render();
+  };
 
   const vsel=document.getElementById('voiceSel');
   const zv=zhVoices();
@@ -485,7 +510,7 @@ function resumeSession(s){
 
 function loadLists(){
   ac(); // unlock audio on user gesture
-  state.words = parseLines(document.getElementById('wbox').value);
+  state.words = parseLines(document.getElementById('wbox').value,true);
   state.sentences = parseLines(document.getElementById('sbox').value);
   if(state.words.length===0 && state.sentences.length===0){ alert('Please add at least one word or sentence!'); return false; }
   return true;
