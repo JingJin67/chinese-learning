@@ -162,6 +162,7 @@
   .save-msg{font-family:'Baloo 2';font-weight:700;font-size:14px;margin-top:8px;min-height:18px;}
   .fmt{background:#FFFDF5;border:2px solid var(--soft);border-radius:12px;padding:10px;font-family:'Noto Sans SC',monospace;font-size:13px;white-space:pre-wrap;color:var(--ink);overflow-x:auto;}
   code{background:#FFF0D8;border-radius:5px;padding:1px 5px;font-weight:800;}
+  #recallCard{animation:none;}
   .say-prompt{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:18px;margin-bottom:10px;}
   .say-cue{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:20px;text-align:center;margin-top:18px;}
   .reveal{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .35s ease;}
@@ -609,7 +610,7 @@ function renderCards(){
     <div class="counter">${inRedo?('Redo: '+deck.queue.length+' to fix'):(cleared+' of '+deck.total+' done')} ${deck.misses?(' • '+deck.misses+' missed'):''}</div>
 
     <div class="card" id="recallCard" style="margin-top:16px;min-height:180px;display:flex;flex-direction:column;justify-content:center;">
-      <div class="say-prompt">${inRedo?'Try this one again! 🔁':'Say it from memory! 🗣️'}</div>
+      ${inRedo?'<div class="say-prompt">Try this one again! 🔁</div>':''}
       <div class="hanzi zh ${isWord?'word':'sentence'}">${item.hanzi}</div>
       <div class="reveal ${deck.revealed?'show':''}">
         ${item.pinyin?`<div class="pinyin ${isWord?'word':'sentence'}">${item.pinyin}</div>`:''}
@@ -658,18 +659,19 @@ function startDeckMic(){
     const alts=[]; for(let i=0;i<e.results[0].length;i++) alts.push(e.results[0][i].transcript);
     const res=isMatch(deckCur().hanzi, alts);
     deck.heard='Heard: '+(alts[0]||'');
-    render();
-    if(res.pass){ flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 900); }
-    else { flagMiss(); softTry(); flash('Not quite — say the whole thing 💪','try'); render(); setTimeout(armDeckMic, 1100); } // keep listening on same card
+    const ht=document.getElementById('heardTxt'); if(ht) ht.textContent=deck.heard;
+    if(res.pass){ setMicIdle(); flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 900); }
+    else { flagMiss(); softTry(); flash('Not quite — say the whole thing 💪','try'); setMicIdle(); setTimeout(armDeckMic, 1100); } // keep listening, no full redraw
   };
   recog.onerror=(ev)=>{
-    deck.listening=false; render();
-    if(ev && (ev.error==='not-allowed'||ev.error==='service-not-allowed')) flash('Mic blocked here — open in Chrome, or tap ✓','try');
+    deck.listening=false; setMicIdle();
+    if(ev && (ev.error==='not-allowed'||ev.error==='service-not-allowed')){ const l=document.getElementById('micLabel'); if(l) l.textContent='Mic blocked — open in Chrome'; }
     else setTimeout(armDeckMic, 800); // no-speech / aborted: keep listening
   };
-  recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; render(); setTimeout(armDeckMic, 300); } }; // silence: re-listen
-  try{ recog.start(); }catch(e){ deck.listening=false; render(); setTimeout(armDeckMic, 500); }
+  recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; setTimeout(armDeckMic, 300); } }; // silence: re-listen, no redraw
+  try{ recog.start(); }catch(e){ deck.listening=false; setTimeout(armDeckMic, 500); }
 }
+function setMicIdle(){ const m=document.getElementById('micBtn'); if(m){ m.classList.remove('listening'); m.textContent='🎤'; } const l=document.getElementById('micLabel'); if(l) l.textContent='Listening… say it!'; }
 function stopDeckMic(){ deck.listening=false; if(micSupported){ try{recog.abort();}catch(e){} } }
 
 function recallAdvance(){
