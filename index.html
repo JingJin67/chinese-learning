@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chinese Flashcard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Noto+Sans+SC:wght@500;700;900&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bamboo:#3FA976;
+    --bamboo-dark:#2E8159;
+    --cream:#FFF7E9;
+    --coral:#FF7B54;
+    --coral-dark:#E85F38;
+    --gold:#FFC83D;
+    --ink:#2C3A33;
+    --sky:#BDEAD6;
+    --card:#FFFFFF;
+    --soft:#F0E4CC;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:'Nunito',sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 15% 10%, #DFF5E8 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #FFE9D6 0%, transparent 45%),
+      var(--cream);
+    min-height:100%;
+    overflow-x:hidden;
+  }
+  .zh{font-family:'Noto Sans SC',sans-serif;}
+  .display{font-family:'Baloo 2',sans-serif;}
+  #app{max-width:560px;margin:0 auto;padding:18px 18px 40px;min-height:100vh;display:flex;flex-direction:column;}
+
+  /* ---- buttons ---- */
+  button{font-family:'Baloo 2',sans-serif;cursor:pointer;border:none;}
+  .btn{
+    border-radius:22px;font-size:22px;font-weight:700;padding:16px 22px;
+    color:#fff;background:var(--coral);box-shadow:0 6px 0 var(--coral-dark);
+    transition:transform .08s, box-shadow .08s;width:100%;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--coral-dark);}
+  .btn.green{background:var(--bamboo);box-shadow:0 6px 0 var(--bamboo-dark);}
+  .btn.ghost{background:#fff;color:var(--bamboo-dark);box-shadow:0 4px 0 var(--soft);border:2px solid var(--soft);}
+  .btn.small{font-size:17px;padding:11px 16px;border-radius:16px;}
+
+  /* ---- home ---- */
+  .home-hero{text-align:center;margin-top:8px;}
+  .panda-big{font-size:96px;line-height:1;filter:drop-shadow(0 10px 12px rgba(0,0,0,.12));animation:bob 3s ease-in-out infinite;}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg);}50%{transform:translateY(-10px) rotate(2deg);}}
+  h1.display{font-size:40px;margin:6px 0 0;color:var(--bamboo-dark);letter-spacing:.5px;}
+  .tagline{font-weight:700;color:var(--coral-dark);margin-top:2px;font-size:18px;}
+
+  .panel{background:var(--card);border-radius:24px;padding:18px;margin-top:18px;box-shadow:0 8px 24px rgba(44,58,51,.10);}
+  .panel h2{font-family:'Baloo 2';margin:0 0 4px;font-size:20px;color:var(--bamboo-dark);}
+  .panel p.hint{font-size:13.5px;color:#7c8a82;margin:0 0 10px;font-weight:700;}
+  label.fld{display:block;font-family:'Baloo 2';font-weight:700;color:var(--ink);margin:12px 0 5px;font-size:16px;}
+  textarea{
+    width:100%;border:2px solid var(--soft);border-radius:16px;padding:12px;font-size:16px;
+    font-family:'Noto Sans SC','Nunito',sans-serif;resize:vertical;min-height:96px;background:#FFFDF7;color:var(--ink);
+  }
+  textarea:focus{outline:none;border-color:var(--bamboo);}
+  .toggle-setup{background:none;color:var(--bamboo-dark);font-size:15px;text-decoration:underline;font-weight:700;margin:14px auto 0;display:block;}
+
+  /* ---- play header ---- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .pill{background:#fff;border-radius:999px;padding:8px 14px;font-family:'Baloo 2';font-weight:800;font-size:18px;box-shadow:0 4px 0 var(--soft);display:flex;align-items:center;gap:6px;}
+  .home-link{font-family:'Baloo 2';background:#fff;border-radius:14px;width:46px;height:46px;font-size:22px;box-shadow:0 4px 0 var(--soft);}
+  .stagebadge{display:inline-block;font-family:'Baloo 2';font-weight:800;font-size:15px;padding:6px 14px;border-radius:999px;background:var(--sky);color:var(--bamboo-dark);margin:18px auto 0;}
+  .stagebadge.boss{background:#FFE0B2;color:var(--coral-dark);}
+
+  .track{height:16px;background:#fff;border-radius:999px;margin-top:14px;box-shadow:inset 0 2px 4px rgba(0,0,0,.06);position:relative;overflow:hidden;}
+  .track-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--coral));border-radius:999px;width:0;transition:width .4s cubic-bezier(.34,1.56,.64,1);}
+  .track-panda{position:absolute;top:-12px;font-size:26px;transition:left .4s cubic-bezier(.34,1.56,.64,1);transform:translateX(-50%);}
+  .counter{text-align:center;font-family:'Baloo 2';font-weight:700;color:#7c8a82;margin-top:6px;font-size:15px;}
+
+  /* ---- card ---- */
+  .card{
+    background:var(--card);border-radius:30px;margin-top:18px;padding:30px 22px;text-align:center;
+    box-shadow:0 14px 30px rgba(44,58,51,.14);position:relative;
+    animation:pop .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop{0%{transform:scale(.85) translateY(10px);opacity:0;}100%{transform:scale(1) translateY(0);opacity:1;}}
+  .card.shake{animation:shake .4s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}20%{transform:translateX(-9px);}40%{transform:translateX(9px);}60%{transform:translateX(-6px);}80%{transform:translateX(6px);}}
+  .hanzi{font-family:'Noto Sans SC';font-weight:900;color:var(--ink);line-height:1.25;}
+  .hanzi.word{font-size:84px;}
+  .hanzi.sentence{font-size:40px;}
+  .pinyin{font-family:'Baloo 2';font-weight:700;color:var(--bamboo-dark);margin-top:8px;}
+  .pinyin.word{font-size:30px;} .pinyin.sentence{font-size:24px;}
+  .english{font-weight:700;color:#9aa69f;margin-top:6px;font-size:18px;font-style:italic;}
+  .speaker{margin-top:16px;background:var(--sky);color:var(--bamboo-dark);border-radius:18px;font-size:18px;font-weight:800;padding:12px 18px;box-shadow:0 5px 0 #9fd9bf;display:inline-flex;align-items:center;gap:8px;}
+  .speaker:active{transform:translateY(3px);box-shadow:0 2px 0 #9fd9bf;}
+
+  /* ---- mic ---- */
+  .mic-wrap{margin-top:22px;text-align:center;}
+  .mic{
+    width:108px;height:108px;border-radius:50%;background:var(--coral);box-shadow:0 8px 0 var(--coral-dark);
+    font-size:46px;color:#fff;display:inline-flex;align-items:center;justify-content:center;transition:transform .1s,box-shadow .1s;
+  }
+  .mic:active{transform:translateY(5px);box-shadow:0 3px 0 var(--coral-dark);}
+  .mic.listening{background:var(--bamboo);box-shadow:0 8px 0 var(--bamboo-dark);animation:pulse 1.1s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+  .mic-label{font-family:'Baloo 2';font-weight:700;margin-top:12px;font-size:18px;color:var(--ink);min-height:24px;}
+  .heard{font-family:'Noto Sans SC';font-weight:700;color:#9aa69f;font-size:16px;min-height:20px;margin-top:2px;}
+  .row{display:flex;gap:10px;margin-top:18px;}
+  .row .btn{margin:0;}
+
+  .feedback{font-family:'Baloo 2';font-weight:800;font-size:22px;text-align:center;margin-top:14px;min-height:28px;}
+  .feedback.good{color:var(--bamboo-dark);}
+  .feedback.try{color:var(--coral-dark);}
+
+  /* ---- win ---- */
+  .win{text-align:center;margin-top:40px;}
+  .win .panda-big{animation:cheer 1s ease-in-out infinite;}
+  @keyframes cheer{0%,100%{transform:rotate(-6deg) translateY(0);}50%{transform:rotate(6deg) translateY(-14px);}}
+  .win h1{font-size:42px;margin:10px 0 4px;color:var(--coral-dark);}
+  .star-line{font-size:40px;margin:14px 0;letter-spacing:4px;}
+  .bigscore{font-family:'Baloo 2';font-weight:800;font-size:26px;color:var(--bamboo-dark);}
+
+  /* confetti */
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:50;}
+  .conf{position:absolute;width:11px;height:16px;border-radius:3px;animation:fall linear forwards;}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:.9;}}
+
+  .hidden{display:none!important;}
+
+  /* ---- flashcards ---- */
+  .deck-toggle{display:flex;gap:8px;background:#fff;border-radius:16px;padding:6px;margin-top:14px;box-shadow:0 4px 0 var(--soft);}
+  .seg{flex:1;font-family:'Baloo 2';font-weight:800;font-size:16px;border-radius:11px;padding:10px 4px;background:transparent;color:#9aa69f;}
+  .seg.on{background:var(--bamboo);color:#fff;box-shadow:0 3px 0 var(--bamboo-dark);}
+  .seg[disabled]{opacity:.35;}
+  .flashcard{position:relative;margin-top:16px;min-height:230px;cursor:pointer;perspective:1200px;}
+  .flashcard .face{
+    position:absolute;inset:0;background:var(--card);border-radius:30px;padding:26px 22px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    box-shadow:0 14px 30px rgba(44,58,51,.14);backface-visibility:hidden;transition:transform .5s cubic-bezier(.4,.2,.2,1);
+  }
+  .flashcard .front{transform:rotateY(0deg);}
+  .flashcard .back{transform:rotateY(180deg);background:#FFFDF5;}
+  .flashcard.flipped .front{transform:rotateY(-180deg);}
+  .flashcard.flipped .back{transform:rotateY(0deg);}
+  .flip-hint{font-family:'Baloo 2';font-weight:700;color:#c3ccc5;font-size:14px;margin-top:18px;}
+  .saved-row{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--soft);}
+  .saved-row:last-child{border-bottom:none;}
+  .lchk{width:22px;height:22px;accent-color:var(--bamboo);flex:0 0 auto;}
+  .lname{flex:1;font-family:'Baloo 2';font-weight:700;font-size:17px;color:var(--ink);}
+  .ldel{background:#fff;color:var(--coral-dark);font-weight:800;border-radius:10px;width:32px;height:32px;font-size:15px;box-shadow:0 3px 0 var(--soft);}
+  .ledit{background:#fff;border-radius:10px;width:32px;height:32px;font-size:15px;box-shadow:0 3px 0 var(--soft);}
+  .starline{display:block;margin-top:3px;font-size:13px;font-weight:800;}
+  .starsec{color:var(--gold);margin-right:10px;letter-spacing:1px;}
+  .earned{font-family:'Baloo 2';font-weight:800;font-size:20px;color:var(--bamboo-dark);margin-top:8px;}
+  .earned .bigstars{color:var(--gold);font-size:26px;letter-spacing:3px;}
+  .save-row{display:flex;gap:8px;margin-top:12px;}
+  .name-in{flex:1;border:2px solid var(--soft);border-radius:14px;padding:11px 12px;font-family:'Nunito';font-weight:700;font-size:16px;background:#FFFDF7;color:var(--ink);}
+  .name-in:focus{outline:none;border-color:var(--bamboo);}
+  .save-row .btn{width:auto;flex:0 0 auto;}
+  .save-msg{font-family:'Baloo 2';font-weight:700;font-size:14px;margin-top:8px;min-height:18px;}
+  .say-prompt{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:18px;margin-bottom:10px;}
+  .say-cue{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:20px;text-align:center;margin-top:18px;}
+  .reveal{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .35s ease;}
+  .reveal.show{max-height:180px;opacity:1;margin-top:10px;}
+  .warn{font-size:13px;color:#b08400;background:#FFF6DD;border-radius:12px;padding:10px 12px;margin-top:14px;font-weight:700;text-align:center;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="confetti"></div>
+
+<script>
+/* ============ STATE ============ */
+const SAMPLE_WORDS = `你好 | nǐ hǎo | hello
+谢谢 | xièxie | thank you
+朋友 | péngyou | friend
+学校 | xuéxiào | school
+苹果 | píngguǒ | apple
+喜欢 | xǐhuan | to like`;
+
+const SAMPLE_SENTENCES = `我喜欢我的朋友 | wǒ xǐhuan wǒ de péngyou | I like my friend
+今天我去学校 | jīntiān wǒ qù xuéxiào | Today I go to school
+我想吃一个苹果 | wǒ xiǎng chī yí ge píngguǒ | I want to eat an apple`;
+
+const state = {
+  screen:'home', stage:'words', idx:0,
+  words:[], sentences:[], activeListName:null,
+  coins:0, stars:0, listening:false, attempts:0, heard:''
+};
+
+const deck = { which:'all', queue:null, total:0, pos:0, revealed:false, done:false, listening:false, heard:'', phase:'first', redo:[], redoTotal:0, misses:0 };
+
+/* speech recognition setup */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, micSupported = !!SR;
+if(micSupported){
+  recog = new SR();
+  recog.lang = 'zh-CN';
+  recog.interimResults = false;
+  recog.maxAlternatives = 5;
+}
+
+/* ============ AUDIO ============ */
+let actx=null;
+function ac(){ if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)(); return actx; }
+function chime(){
+  const c=ac(); const now=c.currentTime;
+  [[523,0],[659,.12],[784,.24],[1047,.36]].forEach(([f,t])=>{
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='triangle';o.frequency.value=f;
+    g.gain.setValueAtTime(0,now+t);g.gain.linearRampToValueAtTime(.25,now+t+.02);
+    g.gain.exponentialRampToValueAtTime(.001,now+t+.3);
+    o.connect(g);g.connect(c.destination);o.start(now+t);o.stop(now+t+.32);
+  });
+}
+function softTry(){
+  const c=ac(); const now=c.currentTime;
+  const o=c.createOscillator(),g=c.createGain();
+  o.type='sine';o.frequency.setValueAtTime(380,now);o.frequency.linearRampToValueAtTime(300,now+.18);
+  g.gain.setValueAtTime(.0,now);g.gain.linearRampToValueAtTime(.18,now+.03);g.gain.exponentialRampToValueAtTime(.001,now+.28);
+  o.connect(g);g.connect(c.destination);o.start(now);o.stop(now+.3);
+}
+
+/* ============ TTS ============ */
+let voices=[];
+let chosenVoiceName = (function(){ try{ return localStorage.getItem('cf_voice')||''; }catch(e){ return ''; } })();
+function loadVoices(){ voices = speechSynthesis.getVoices(); }
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function zhVoices(){ return voices.filter(v=>/zh|cmn|chinese|mandarin/i.test(v.lang+' '+v.name)); }
+function pickVoice(){
+  if(chosenVoiceName){ const m=voices.find(v=>v.name===chosenVoiceName); if(m) return m; }
+  return zhVoices()[0] || voices.find(v=>/zh|cmn|Chinese/i.test(v.lang+v.name));
+}
+function setVoice(name){ chosenVoiceName=name; try{ localStorage.setItem('cf_voice',name); }catch(e){} }
+function say(text, slow, onDone){
+  if(!('speechSynthesis' in window)){ if(onDone) onDone(); return; }
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='zh-CN'; u.rate = slow?0.55:0.85; u.pitch=1.05;
+  const v=pickVoice(); if(v) u.voice=v;
+  if(onDone) u.onend=onDone;
+  speechSynthesis.speak(u);
+}
+
+/* ============ MATCHING ============ */
+function normalize(s){
+  return (s||'').replace(/[\s，。！？、,.!?；;：:""''「」『』~～]/g,'').toLowerCase();
+}
+function similar(target, heard){
+  const t=normalize(target), h=normalize(heard);
+  if(!t) return 0;
+  if(h===t) return 1;
+  if(h.includes(t)||t.includes(h)) return Math.min(t.length,h.length)/Math.max(t.length,h.length)+ (t.includes(h)?0:0);
+  // multiset char overlap
+  const pool=h.split('');
+  let hit=0;
+  for(const ch of t){ const i=pool.indexOf(ch); if(i>-1){hit++;pool.splice(i,1);} }
+  return hit/t.length;
+}
+function isMatch(target, alternatives){
+  // strict: the whole word/sentence must be said with no mistakes.
+  const t=normalize(target);
+  let pass=false, bestHeard='';
+  alternatives.forEach(a=>{ if(!bestHeard) bestHeard=a; if(normalize(a)===t) pass=true; });
+  return {pass, heard:bestHeard};
+}
+
+/* ============ PARSE ============ */
+function parseLines(text){
+  return text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const p=l.split('|').map(x=>x.trim());
+    return {hanzi:p[0]||'', pinyin:p[1]||'', en:p[2]||''};
+  }).filter(x=>x.hanzi);
+}
+
+/* ============ RENDER ============ */
+const app=document.getElementById('app');
+function render(){
+  if(state.screen==='home') return renderHome();
+  if(state.screen==='parent') return renderParent();
+  if(state.screen==='play') return renderPlay();
+  if(state.screen==='cards') return renderCards();
+  if(state.screen==='win')  return renderWin();
+}
+
+function renderHome(){
+  const store = loadStore();
+  const names = Object.keys(store);
+  const starRow=(label,count,got)=> count? `<span class="starsec">${label} ${'★'.repeat(got)}${'☆'.repeat(3-got)}</span>` : '';
+  const savedHTML = names.length ? names.map(n=>{
+      const rec=store[n]||{};
+      const wc=parseLines(rec.words||'').length, sc=parseLines(rec.sentences||'').length;
+      const sw=(rec.stars&&rec.stars.words)||0, ss=(rec.stars&&rec.stars.sentences)||0;
+      return `
+      <label class="saved-row">
+        <input type="checkbox" class="lchk" value="${encodeURIComponent(n)}">
+        <span class="lname">${n}<span class="starline">${starRow('📚',wc,sw)} ${starRow('💬',sc,ss)}</span></span>
+      </label>`;
+    }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists yet. Tap ⚙️ For parents to add one — or just tap Flashcards to try the sample.</p>`;
+
+  app.innerHTML = `
+    <div class="home-hero">
+      <div class="panda-big">🐼</div>
+      <h1 class="display">Chinese Flashcard</h1>
+      <div class="tagline">Say it out loud, win some stars! ⭐</div>
+    </div>
+
+    <div class="panel">
+      <h2>📂 Pick your list</h2>
+      <p class="hint">Tick one or more, then tap Play or Flashcards.</p>
+      <div id="savedList">${savedHTML}</div>
+      <div id="homeMsg" class="save-msg"></div>
+    </div>
+
+    <div class="row" style="margin-top:18px;">
+      <button class="btn green display" id="cardBtn" style="flex:1;">Flashcards 🃏</button>
+    </div>
+
+    <button class="toggle-setup" id="parentBtn">⚙️ For parents — make &amp; edit lists</button>
+  `;
+
+  document.getElementById('cardBtn').onclick=()=>{ if(prepSelected('homeMsg')){ deck.which='all'; buildDeck(); state.screen='cards'; render(); } };
+  document.getElementById('parentBtn').onclick=()=>{ state.screen='parent'; render(); };
+}
+
+/* gather ticked lists into state; fall back to sample if none saved */
+function prepSelected(msgId){
+  ac();
+  const picks=[...document.querySelectorAll('.lchk:checked')].map(c=>decodeURIComponent(c.value));
+  const st=loadStore(); const have=Object.keys(st).length;
+  let W=[], S=[];
+  if(picks.length){
+    picks.forEach(n=>{ if(st[n]){ W=W.concat(parseLines(st[n].words)); S=S.concat(parseLines(st[n].sentences)); } });
+    state.activeListName = picks.length===1 ? picks[0] : null;  // stars only for a single list
+  } else if(have){
+    notice(msgId,'Tick a list first 🙂'); return false;
+  } else {
+    W=parseLines(SAMPLE_WORDS); S=parseLines(SAMPLE_SENTENCES); state.activeListName=null;
+  }
+  if(!W.length && !S.length){ notice(msgId,'That list is empty.'); return false; }
+  state.words=W; state.sentences=S; return true;
+}
+function startPlay(){
+  state.stage = state.words.length? 'words':'sentences';
+  state.idx=0; state.coins=0; state.stars=0; state.attempts=0; state.heard='';
+  state.screen='play'; render(); setTimeout(()=>say(current().hanzi),350);
+}
+function notice(id,m){ const el=document.getElementById(id); if(el){ el.textContent=m; el.style.color='#b08400'; } }
+
+/* ============ PARENT: make & edit lists ============ */
+function renderParent(){
+  const store = loadStore();
+  const names = Object.keys(store);
+  const savedHTML = names.length ? names.map(n=>`
+      <div class="saved-row">
+        <span class="lname">${n}</span>
+        <button class="ledit" data-n="${encodeURIComponent(n)}" title="edit">✏️</button>
+        <button class="ldel" data-n="${encodeURIComponent(n)}" title="delete">✕</button>
+      </div>`).join('') : `<p class="hint" style="margin:6px 0 0;">No saved lists yet.</p>`;
+
+  app.innerHTML = `
+    <div class="topbar">
+      <button class="home-link display" id="backBtn">←</button>
+      <div class="pill" style="font-size:15px;">⚙️ Parent setup</div>
+      <div style="width:46px;"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <h2>📂 Saved lists</h2>
+      <div id="savedManage">${savedHTML}</div>
+    </div>
+
+    <div class="panel">
+      <h2>🔊 Voice</h2>
+      <p class="hint" id="voiceHint">Pick a Chinese voice. For better quality, install Google TTS Chinese voices in the tablet's Settings.</p>
+      <div class="save-row">
+        <select id="voiceSel" class="name-in"></select>
+        <button class="btn small" id="testVoice">▶ Test</button>
+      </div>
+    </div>
+
+    <div class="panel" id="setup">
+      <h2>✏️ New / edit list</h2>
+      <p class="hint">One per line. Format:  汉字 | pīnyīn | english  (pinyin & english optional)</p>
+      <label class="fld">📚 Words</label>
+      <textarea id="wbox">${SAMPLE_WORDS}</textarea>
+      <label class="fld">💬 Sentences</label>
+      <textarea id="sbox">${SAMPLE_SENTENCES}</textarea>
+      <div class="save-row">
+        <input id="listName" class="name-in" placeholder="List name (e.g. Week 5)">
+        <button class="btn small" id="saveBtn">💾 Save</button>
+      </div>
+      <div id="saveMsg" class="save-msg"></div>
+      <button class="btn ghost small" id="tryBtn" style="margin-top:10px;">▶ Try this list now</button>
+    </div>
+  `;
+
+  document.getElementById('backBtn').onclick=()=>{ state.screen='home'; render(); };
+
+  // voice picker
+  const vsel=document.getElementById('voiceSel');
+  const zv=zhVoices();
+  if(vsel){
+    if(zv.length){
+      vsel.innerHTML = zv.map(v=>`<option value="${v.name}" ${v.name===chosenVoiceName?'selected':''}>${v.name}</option>`).join('');
+    } else {
+      vsel.innerHTML = `<option value="">No Chinese voice found on this device</option>`;
+      const vh=document.getElementById('voiceHint'); if(vh) vh.textContent='No Chinese voice is installed yet. On the tablet: Settings → Accessibility → Text-to-speech → Google TTS → Install voice data → Chinese.';
+    }
+    vsel.onchange=()=>{ setVoice(vsel.value); say('你好'); };
+  }
+  document.getElementById('testVoice').onclick=()=>{ ac(); if(vsel&&vsel.value) setVoice(vsel.value); say('你好，我们一起学中文'); };
+  document.getElementById('saveBtn').onclick=()=>{
+    ac();
+    const name=document.getElementById('listName').value.trim();
+    const w=document.getElementById('wbox').value, s=document.getElementById('sbox').value;
+    if(!name){ saveMsg('Please type a list name first.',false); return; }
+    if(!parseLines(w).length && !parseLines(s).length){ saveMsg('Add some words or sentences first.',false); return; }
+    const st=loadStore(); st[name]={words:w, sentences:s};
+    if(saveStore(st)){ saveMsg('Saved "'+name+'" ✓',true); setTimeout(render,700); }
+    else saveMsg('Saving works once opened from your web link (not in this preview).',false);
+  };
+  document.getElementById('tryBtn').onclick=()=>{
+    ac();
+    state.words=parseLines(document.getElementById('wbox').value);
+    state.sentences=parseLines(document.getElementById('sbox').value);
+    if(!state.words.length && !state.sentences.length){ saveMsg('Add some words first.',false); return; }
+    state.activeListName=null;
+    deck.which='all'; buildDeck(); state.screen='cards'; render();
+  };
+  document.querySelectorAll('.ledit').forEach(b=> b.onclick=()=>{
+    const n=decodeURIComponent(b.dataset.n); const st=loadStore();
+    if(st[n]){ document.getElementById('wbox').value=st[n].words||''; document.getElementById('sbox').value=st[n].sentences||''; document.getElementById('listName').value=n; saveMsg('Editing "'+n+'" — change it and Save.',true); window.scrollTo(0,document.body.scrollHeight); }
+  });
+  document.querySelectorAll('.ldel').forEach(b=> b.onclick=()=>{
+    const n=decodeURIComponent(b.dataset.n);
+    if(confirm('Delete saved list "'+n+'"?')){ const st=loadStore(); delete st[n]; saveStore(st); render(); }
+  });
+}
+function saveMsg(m,ok){ const el=document.getElementById('saveMsg'); if(el){ el.textContent=m; el.style.color= ok?'#2E8159':'#b08400'; } }
+
+/* device storage (works on hosted link; degrades quietly in preview) */
+function loadStore(){ try{ return JSON.parse(localStorage.getItem('cf_lists')||'{}'); }catch(e){ return {}; } }
+function saveStore(o){ try{ localStorage.setItem('cf_lists', JSON.stringify(o)); return true; }catch(e){ return false; } }
+
+function loadLists(){
+  ac(); // unlock audio on user gesture
+  state.words = parseLines(document.getElementById('wbox').value);
+  state.sentences = parseLines(document.getElementById('sbox').value);
+  if(state.words.length===0 && state.sentences.length===0){ alert('Please add at least one word or sentence!'); return false; }
+  return true;
+}
+
+function list(){ return state.stage==='words'?state.words:state.sentences; }
+function current(){ return list()[state.idx]; }
+function totalItems(){ return state.words.length + state.sentences.length; }
+
+function renderPlay(){
+  const item=current();
+  const isWord=state.stage==='words';
+  const done = (state.stage==='sentences'? state.words.length:0) + state.idx;
+  const pct = Math.round((done/totalItems())*100);
+  app.innerHTML=`
+    <div class="topbar">
+      <button class="home-link display" id="homeBtn">🏠</button>
+      <div class="pill">🪙 <span>${state.coins}</span></div>
+      <div class="pill">⭐ <span>${state.stars}</span></div>
+    </div>
+    <div style="text-align:center;">
+      <span class="stagebadge ${isWord?'':'boss'}">${isWord?'📚 Word Round':'💬 Sentence Boss Level!'}</span>
+    </div>
+    <div class="track">
+      <div class="track-fill" style="width:${pct}%"></div>
+      <div class="track-panda" style="left:${pct}%">🐼</div>
+    </div>
+    <div class="counter">${state.idx+1} of ${list().length} ${isWord?'words':'sentences'}</div>
+
+    <div class="card" id="card">
+      <div class="hanzi zh ${isWord?'word':'sentence'}">${item.hanzi}</div>
+      ${item.pinyin?`<div class="pinyin ${isWord?'word':'sentence'}">${item.pinyin}</div>`:''}
+      ${item.en?`<div class="english">${item.en}</div>`:''}
+      <button class="speaker" id="hearBtn">🔊 Hear it</button>
+    </div>
+
+    <div class="mic-wrap">
+      <button class="mic ${state.listening?'listening':''}" id="micBtn">${state.listening?'👂':'🎤'}</button>
+      <div class="mic-label" id="micLabel">${state.listening?'Listening… say it!':'Tap 🎤 and say it'}</div>
+      <div class="heard zh" id="heardTxt">${state.heard?('Heard: '+state.heard):''}</div>
+    </div>
+    <div class="feedback" id="fb"></div>
+
+    <div class="row">
+      <button class="btn ghost small" id="gotBtn" style="flex:1;">✓ Knew it (no mic)</button>
+      <button class="btn ghost small" id="skipBtn" style="flex:1;">Skip ▷</button>
+    </div>
+  `;
+  document.getElementById('homeBtn').onclick=()=>{ stopMic(); state.screen='home'; render(); };
+  document.getElementById('hearBtn').onclick=()=>say(item.hanzi);
+  document.getElementById('micBtn').onclick=()=> state.listening?stopMic():startMic();
+  document.getElementById('gotBtn').onclick=()=>pass();
+  document.getElementById('skipBtn').onclick=()=>{ stopMic(); advance(); };
+}
+
+function renderWin(){
+  const maxStars = totalItems();
+  app.innerHTML=`
+    <div class="win">
+      <div class="panda-big">🐼</div>
+      <h1 class="display">You did it!</h1>
+      <div class="star-line">⭐⭐⭐⭐⭐</div>
+      <div class="bigscore">${state.stars} / ${maxStars} stars earned</div>
+      <div class="bigscore" style="color:var(--coral-dark);margin-top:4px;">🪙 ${state.coins} coins</div>
+      <div style="margin-top:26px;"><button class="btn green display" id="againBtn">Play Again 🔁</button></div>
+      <div style="margin-top:12px;"><button class="btn ghost display" id="newBtn">New Week ✏️</button></div>
+    </div>`;
+  burst();
+  document.getElementById('againBtn').onclick=()=>{
+    state.stage=state.words.length?'words':'sentences'; state.idx=0; state.coins=0; state.stars=0; state.heard=''; state.attempts=0;
+    state.screen='play'; render(); setTimeout(()=>say(current().hanzi),350);
+  };
+  document.getElementById('newBtn').onclick=()=>{ state.screen='home'; render(); };
+}
+
+/* ============ FLASHCARDS (recall practice) ============ */
+function deckPool(){
+  if(deck.which==='words') return state.words.map(x=>({...x,kind:'word'}));
+  if(deck.which==='sentences') return state.sentences.map(x=>({...x,kind:'sentence'}));
+  return [...state.words.map(x=>({...x,kind:'word'})), ...state.sentences.map(x=>({...x,kind:'sentence'}))];
+}
+function buildDeck(){
+  const pool = deckPool();
+  pool.forEach(c=>c._flagged=false);
+  deck.queue = pool.slice();
+  deck.total = pool.length;
+  deck.totalW = pool.filter(c=>c.kind==='word').length;
+  deck.totalS = pool.filter(c=>c.kind==='sentence').length;
+  deck.pos = 0; deck.phase='first'; deck.redo=[]; deck.redoTotal=0;
+  deck.misses=0; deck.missW=0; deck.missS=0;
+  deck.revealed=false; deck.done=false; deck.heard=''; deck.listening=false;
+}
+function shuffleDeck(){
+  for(let i=deck.queue.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck.queue[i],deck.queue[j]]=[deck.queue[j],deck.queue[i]]; }
+  deck.queue.forEach(c=>c._flagged=false);
+  deck.pos=0; deck.phase='first'; deck.redo=[]; deck.redoTotal=0;
+  deck.misses=0; deck.missW=0; deck.missS=0; deck.revealed=false; deck.heard='';
+}
+function flagMiss(){
+  const card=deck.queue[deck.pos];
+  if(deck.phase==='first' && card && !card._flagged){
+    card._flagged=true; deck.redo.push(card); deck.misses++;
+    if(card.kind==='word') deck.missW++; else deck.missS++;
+  }
+}
+function starsFor(miss,total){ if(!total) return null; if(miss===0) return 3; if(miss/total<=1/3) return 2; return 1; }
+function saveStars(){
+  if(!state.activeListName) return;
+  const st=loadStore(); const rec=st[state.activeListName]; if(!rec) return;
+  rec.stars = rec.stars || {};
+  const sw=starsFor(deck.missW, deck.totalW), ss=starsFor(deck.missS, deck.totalS);
+  if(sw!==null) rec.stars.words = Math.max(rec.stars.words||0, sw);
+  if(ss!==null) rec.stars.sentences = Math.max(rec.stars.sentences||0, ss);
+  saveStore(st);
+}
+function deckCur(){ return deck.queue[deck.pos]; }
+
+function renderCards(){
+  if(!deck.queue) buildDeck();
+
+  // ---- finished ----
+  if(deck.done){
+    const clean = deck.done==='clean';
+    const sw=starsFor(deck.missW, deck.totalW), ss=starsFor(deck.missS, deck.totalS);
+    const starBlock=(label,n)=> n===null? '' : `<div class="earned"><span>${label}</span> <span class="bigstars">${'⭐'.repeat(n)}${'·'.repeat(3-n)}</span></div>`;
+    app.innerHTML=`
+      <div class="win">
+        <div class="panda-big">🐼</div>
+        <h1 class="display">${clean?'Perfect! 🌟':'All done! 🎉'}</h1>
+        ${starBlock('📚 Words', sw)}
+        ${starBlock('💬 Sentences', ss)}
+        <div class="bigscore" style="margin-top:14px;">${clean
+          ? 'Every card right on the first try — a clean pass!'
+          : 'Finished all '+deck.total+'. Missed '+deck.misses+' along the way.'}</div>
+        ${clean?'':'<div class="bigscore" style="color:var(--coral-dark);margin-top:6px;">Try again for a perfect 3-star run 💪</div>'}
+        <div style="margin-top:24px;"><button class="btn green display" id="redoBtn">${clean?'Do it again 🔁':'Try for 3 stars 🔁'}</button></div>
+        <div style="margin-top:12px;"><button class="btn ghost display" id="homeBtn2">Home 🏠</button></div>
+      </div>`;
+    if(clean) burst();
+    document.getElementById('redoBtn').onclick=()=>{ buildDeck(); render(); armDeckMic(); };
+    document.getElementById('homeBtn2').onclick=()=>{ stopDeckMic(); state.screen='home'; render(); };
+    return;
+  }
+
+  const item=deckCur();
+  const isWord = item.kind==='word';
+  const inRedo = deck.phase==='redo';
+  const base = inRedo ? deck.redoTotal : deck.total;
+  const cleared = base - deck.queue.length;
+  const pct = base? Math.round((cleared/base)*100):0;
+  app.innerHTML=`
+    <div class="topbar">
+      <button class="home-link display" id="homeBtn">🏠</button>
+      <div class="pill" style="font-size:15px;">${inRedo?'🔁 Redo round':'🃏 Flashcards'}</div>
+      <button class="home-link display" id="shufBtn">🔀</button>
+    </div>
+
+    <div class="deck-toggle">
+      <button class="seg ${deck.which==='all'?'on':''}" data-d="all">All</button>
+      <button class="seg ${deck.which==='words'?'on':''}" data-d="words" ${state.words.length?'':'disabled'}>Words</button>
+      <button class="seg ${deck.which==='sentences'?'on':''}" data-d="sentences" ${state.sentences.length?'':'disabled'}>Sentences</button>
+    </div>
+
+    <div class="track" style="margin-top:14px;">
+      <div class="track-fill" style="width:${pct}%"></div>
+      <div class="track-panda" style="left:${pct}%">🐼</div>
+    </div>
+    <div class="counter">${inRedo?('Redo: '+deck.queue.length+' to fix'):(cleared+' of '+deck.total+' done')} ${deck.misses?(' • '+deck.misses+' missed'):''}</div>
+
+    <div class="card" id="recallCard" style="margin-top:16px;min-height:180px;display:flex;flex-direction:column;justify-content:center;">
+      <div class="say-prompt">${inRedo?'Try this one again! 🔁':'Say it from memory! 🗣️'}</div>
+      <div class="hanzi zh ${isWord?'word':'sentence'}">${item.hanzi}</div>
+      <div class="reveal ${deck.revealed?'show':''}">
+        ${item.pinyin?`<div class="pinyin ${isWord?'word':'sentence'}">${item.pinyin}</div>`:''}
+        ${item.en?`<div class="english">${item.en}</div>`:''}
+      </div>
+    </div>
+
+    <div class="mic-wrap" style="margin-top:14px;">
+      <div class="mic ${deck.listening?'listening':''}" id="micBtn" style="width:88px;height:88px;font-size:38px;">${deck.listening?'👂':'🎤'}</div>
+      <div class="mic-label" id="micLabel">${deck.listening?'Listening… say it!':(micSupported?'Starting mic…':'Mic needs Chrome')}</div>
+      <div class="heard zh" id="heardTxt">${deck.heard||''}</div>
+    </div>
+    <div class="feedback" id="fb"></div>
+
+    <button class="btn ghost small" id="helpBtn" style="margin-top:6px;">💡 Remind me</button>
+    <p class="hint" style="text-align:center;margin-top:12px;">${item._flagged?'Missed once — comes back in the redo round 🔁':'Say the whole thing correctly to move on ⭐'}</p>
+  `;
+  document.getElementById('homeBtn').onclick=()=>{ stopDeckMic(); state.screen='home'; render(); };
+  document.getElementById('shufBtn').onclick=()=>{ stopDeckMic(); shuffleDeck(); render(); armDeckMic(); };
+  document.querySelectorAll('.seg').forEach(b=> b.onclick=()=>{
+    if(b.hasAttribute('disabled')) return;
+    stopDeckMic(); deck.which=b.dataset.d; buildDeck(); render(); armDeckMic();
+  });
+  document.getElementById('helpBtn').onclick=()=>{
+    stopDeckMic(); flagMiss(); deck.revealed=true; render();
+    say(item.hanzi, false, ()=>armDeckMic());   // resume listening once the panda finishes
+  };
+  armDeckMic(); // auto-start listening the moment the card shows
+}
+
+let deckMicBusy=false; // reserved
+function armDeckMic(){
+  if(!micSupported || state.screen!=='cards' || deck.done || deck.listening) return;
+  setTimeout(startDeckMic, 250);
+}
+function startDeckMic(){
+  if(!micSupported || state.screen!=='cards' || deck.done || deck.listening) return;
+  try{ recog.abort(); }catch(e){}
+  deck.listening=true; deck.heard='';
+  const label=document.getElementById('micLabel'); if(label) label.textContent='Listening… say it!';
+  const micEl=document.getElementById('micBtn'); if(micEl){ micEl.classList.add('listening'); micEl.textContent='👂'; }
+  let handled=false;
+  recog.onresult=(e)=>{
+    handled=true; deck.listening=false;
+    const alts=[]; for(let i=0;i<e.results[0].length;i++) alts.push(e.results[0][i].transcript);
+    const res=isMatch(deckCur().hanzi, alts);
+    deck.heard='Heard: '+(alts[0]||'');
+    render();
+    if(res.pass){ flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 900); }
+    else { flagMiss(); softTry(); flash('Not quite — say the whole thing 💪','try'); render(); setTimeout(armDeckMic, 1100); } // keep listening on same card
+  };
+  recog.onerror=(ev)=>{
+    deck.listening=false; render();
+    if(ev && (ev.error==='not-allowed'||ev.error==='service-not-allowed')) flash('Mic blocked here — open in Chrome, or tap ✓','try');
+    else setTimeout(armDeckMic, 800); // no-speech / aborted: keep listening
+  };
+  recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; render(); setTimeout(armDeckMic, 300); } }; // silence: re-listen
+  try{ recog.start(); }catch(e){ deck.listening=false; render(); setTimeout(armDeckMic, 500); }
+}
+function stopDeckMic(){ deck.listening=false; if(micSupported){ try{recog.abort();}catch(e){} } }
+
+function recallAdvance(){
+  // only called on a correct answer
+  chime(); miniBurst();
+  deck.queue.splice(deck.pos,1);
+  deck.revealed=false; deck.heard=''; deck.listening=false;
+  if(deck.queue.length>0){
+    if(deck.pos>=deck.queue.length) deck.pos=0;
+    render(); armDeckMic(); return;
+  }
+  // current pile cleared
+  if(deck.phase==='first'){
+    if(deck.redo.length===0){ deck.done='clean'; saveStars(); render(); return; }
+    deck.phase='redo'; deck.queue=deck.redo.slice(); deck.redo=[]; deck.redoTotal=deck.queue.length; deck.pos=0;
+    flash('','');
+    render(); armDeckMic(); return;
+  }
+  deck.done='finished'; saveStars(); render();
+}
+
+/* ============ MIC FLOW ============ */
+function startMic(){
+  if(!micSupported){ flash('Use the ✓ button 🙂','try'); return; }
+  try{ recog.abort(); }catch(e){}
+  state.listening=true; state.heard=''; render();
+  let got=false;
+  recog.onresult=(e)=>{
+    got=true;
+    const alts=[];
+    for(let i=0;i<e.results[0].length;i++) alts.push(e.results[0][i].transcript);
+    state.heard=alts[0]||'';
+    const res=isMatch(current().hanzi, alts);
+    state.listening=false;
+    if(res.pass){ pass(false); }
+    else { render(); fail(res.score); }
+  };
+  recog.onerror=()=>{ state.listening=false; render(); flash('Hmm, I missed that, try again!','try'); };
+  recog.onend=()=>{ if(state.listening){ state.listening=false; render(); if(!got) flash('Tap the mic and say it 🙂','try'); } };
+  try{ recog.start(); }catch(e){ state.listening=false; render(); }
+}
+function stopMic(){ state.listening=false; if(micSupported){ try{recog.abort();}catch(e){} } }
+
+/* ============ PASS / FAIL ============ */
+function pass(){
+  state.coins += 5; state.stars += 1; state.attempts=0; state.heard='';
+  chime(); render(); flash('🎉 ' + cheer(),'good'); miniBurst();
+  setTimeout(advance, 1100);
+}
+function fail(score){
+  state.attempts++;
+  softTry();
+  const card=document.getElementById('card'); if(card){ card.classList.add('shake'); setTimeout(()=>card.classList.remove('shake'),420); }
+  let msg = score>0.5 ? 'So close! Try once more 💪' : 'Almost! Listen again 👂';
+  flash(msg,'try');
+  say(current().hanzi, true); // slow replay models it for him
+  if(state.attempts>=3) setTimeout(()=>flash('Tip: tap ✓ if he said it right — the mic can be shy 🙂','try'),1400);
+}
+function advance(){
+  state.heard=''; state.attempts=0;
+  if(state.idx < list().length-1){ state.idx++; }
+  else if(state.stage==='words' && state.sentences.length){ state.stage='sentences'; state.idx=0; }
+  else { state.screen='win'; render(); return; }
+  render(); setTimeout(()=>say(current().hanzi),350);
+}
+
+/* ============ FX ============ */
+function cheer(){ const c=['Perfect!','Great job!','Awesome!','You got it!','Super!','Nice one!','Way to go!']; return c[Math.floor(Math.random()*c.length)]; }
+function flash(msg,type){ const fb=document.getElementById('fb'); if(fb){ fb.textContent=msg; fb.className='feedback '+(type||''); } }
+function miniBurst(){ burst(28); }
+function burst(n=80){
+  const box=document.getElementById('confetti');
+  const colors=['#FFC83D','#FF7B54','#3FA976','#BDEAD6','#E85F38'];
+  for(let i=0;i<n;i++){
+    const d=document.createElement('div'); d.className='conf';
+    d.style.left=Math.random()*100+'vw'; d.style.top='-20px';
+    d.style.background=colors[Math.floor(Math.random()*colors.length)];
+    d.style.animationDuration=(1.6+Math.random()*1.4)+'s';
+    d.style.animationDelay=(Math.random()*.3)+'s';
+    d.style.transform=`rotate(${Math.random()*360}deg)`;
+    box.appendChild(d); setTimeout(()=>d.remove(),3200);
+  }
+}
+
+render();
+</script>
+</body>
+</html>
