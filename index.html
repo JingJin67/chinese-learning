@@ -163,12 +163,15 @@
   .fmt{background:#FFFDF5;border:2px solid var(--soft);border-radius:12px;padding:10px;font-family:'Noto Sans SC',monospace;font-size:13px;white-space:pre-wrap;color:var(--ink);overflow-x:auto;}
   code{background:#FFF0D8;border-radius:5px;padding:1px 5px;font-weight:800;}
   #recallCard{animation:none;}
+  .ch{transition:color .15s, transform .15s;}
+  .ch.lit{color:var(--bamboo);transform:translateY(-2px);text-shadow:0 2px 8px rgba(63,169,118,.3);}
   .say-prompt{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:18px;margin-bottom:10px;}
   .say-cue{font-family:'Baloo 2';font-weight:800;color:var(--coral-dark);font-size:20px;text-align:center;margin-top:18px;}
   .reveal{max-height:0;opacity:0;overflow:hidden;transition:max-height .35s ease,opacity .35s ease;}
   .reveal.show{max-height:180px;opacity:1;margin-top:10px;}
   .warn{font-size:13px;color:#b08400;background:#FFF6DD;border-radius:12px;padding:10px 12px;margin-top:14px;font-weight:700;text-align:center;}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.js"></script>
 </head>
 <body>
 <div id="app"></div>
@@ -266,11 +269,20 @@ function similar(target, heard){
   for(const ch of t){ const i=pool.indexOf(ch); if(i>-1){hit++;pool.splice(i,1);} }
   return hit/t.length;
 }
-function isMatch(target, alternatives){
+function toPinyin(s){
+  try{ if(window.pinyinPro&&window.pinyinPro.pinyin) return window.pinyinPro.pinyin(s,{toneType:'none',type:'string'}).replace(/\s/g,'').toLowerCase(); }catch(e){}
+  return '';
+}
+function isMatch(target, alternatives, allowSound){
   // strict: the whole word/sentence must be said with no mistakes.
   const t=normalize(target);
+  const tp = allowSound? toPinyin(target):'';
   let pass=false, bestHeard='';
-  alternatives.forEach(a=>{ if(!bestHeard) bestHeard=a; if(normalize(a)===t) pass=true; });
+  alternatives.forEach(a=>{
+    if(!bestHeard) bestHeard=a;
+    if(normalize(a)===t) pass=true;                       // same characters
+    else if(allowSound && tp && toPinyin(a)===tp) pass=true; // same pronunciation (homophones)
+  });
   return {pass, heard:bestHeard};
 }
 
@@ -307,6 +319,15 @@ function renderHome(){
       </label>`;
     }).join('') : `<p class="hint" style="margin:6px 0 0;">No lists yet. Tap ⚙️ For parents to set up lists.txt — or just tap Flashcards to try the sample.</p>`;
 
+  const sess = loadSession();
+  const resumeHTML = sess ? `
+    <div class="panel" style="background:#EAF7F0;">
+      <h2>⏸ Continue where you left off</h2>
+      <p class="hint">A practice is still in progress.</p>
+      <button class="btn green small" id="resumeBtn" style="margin-top:8px;">▶ Resume</button>
+      <button class="btn ghost small" id="discardBtn" style="margin-top:8px;">Start fresh instead</button>
+    </div>` : '';
+
   app.innerHTML = `
     <div class="home-hero">
       <div class="panda-big">🐼</div>
@@ -314,9 +335,11 @@ function renderHome(){
       <div class="tagline">Say it out loud, win some stars! ⭐</div>
     </div>
 
+    ${resumeHTML}
+
     <div class="panel">
       <h2>📂 Pick your list</h2>
-      <p class="hint">Tick one or more, then tap Play or Flashcards.</p>
+      <p class="hint">Tick one or more, then tap Flashcards.</p>
       <div id="savedList">${savedHTML}</div>
       <div id="homeMsg" class="save-msg"></div>
     </div>
@@ -328,6 +351,10 @@ function renderHome(){
     <button class="toggle-setup" id="parentBtn">⚙️ For parents — make &amp; edit lists</button>
   `;
 
+  if(sess){
+    document.getElementById('resumeBtn').onclick=()=>{ ac(); resumeSession(sess); };
+    document.getElementById('discardBtn').onclick=()=>{ clearSession(); render(); };
+  }
   document.getElementById('cardBtn').onclick=()=>{ if(prepSelected('homeMsg')){ deck.which='all'; buildDeck(); state.screen='cards'; render(); } };
   document.getElementById('parentBtn').onclick=()=>{ state.screen='parent'; render(); };
 }
@@ -437,6 +464,25 @@ function fetchLists(cb){
 function loadStars(){ try{ return JSON.parse(localStorage.getItem('cf_stars')||'{}'); }catch(e){ return {}; } }
 function saveStarsStore(o){ try{ localStorage.setItem('cf_stars', JSON.stringify(o)); return true; }catch(e){ return false; } }
 
+/* save a half-finished run so he can pause and resume */
+function saveSession(){
+  try{
+    const s={ words:state.words, sentences:state.sentences, activeListName:state.activeListName,
+      which:deck.which, phase:deck.phase, pos:deck.pos, queue:deck.queue, redo:deck.redo, redoTotal:deck.redoTotal,
+      total:deck.total, totalW:deck.totalW, totalS:deck.totalS, misses:deck.misses, missW:deck.missW, missS:deck.missS };
+    localStorage.setItem('cf_session', JSON.stringify(s));
+  }catch(e){}
+}
+function loadSession(){ try{ const r=localStorage.getItem('cf_session'); return r?JSON.parse(r):null; }catch(e){ return null; } }
+function clearSession(){ try{ localStorage.removeItem('cf_session'); }catch(e){} }
+function resumeSession(s){
+  state.words=s.words; state.sentences=s.sentences; state.activeListName=s.activeListName;
+  deck.which=s.which; deck.phase=s.phase; deck.pos=s.pos; deck.queue=s.queue; deck.redo=s.redo; deck.redoTotal=s.redoTotal;
+  deck.total=s.total; deck.totalW=s.totalW; deck.totalS=s.totalS; deck.misses=s.misses; deck.missW=s.missW; deck.missS=s.missS;
+  deck.revealed=false; deck.done=false; deck.heard=''; deck.listening=false; deck.sentProgress=0;
+  state.screen='cards'; render(); armDeckMic();
+}
+
 function loadLists(){
   ac(); // unlock audio on user gesture
   state.words = parseLines(document.getElementById('wbox').value);
@@ -531,6 +577,7 @@ function buildDeck(){
   deck.pos = 0; deck.phase='first'; deck.redo=[]; deck.redoTotal=0;
   deck.misses=0; deck.missW=0; deck.missS=0;
   deck.revealed=false; deck.done=false; deck.heard=''; deck.listening=false;
+  saveSession();
 }
 function shuffleDeck(){
   for(let i=deck.queue.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck.queue[i],deck.queue[j]]=[deck.queue[j],deck.queue[i]]; }
@@ -543,6 +590,7 @@ function flagMiss(){
   if(deck.phase==='first' && card && !card._flagged){
     card._flagged=true; deck.redo.push(card); deck.misses++;
     if(card.kind==='word') deck.missW++; else deck.missS++;
+    saveSession();
   }
 }
 function starsFor(miss,total){ if(!total) return null; if(miss===0) return 3; if(miss/total<=1/3) return 2; return 1; }
@@ -555,6 +603,16 @@ function saveStars(){
   saveStarsStore(st);
 }
 function deckCur(){ return deck.queue[deck.pos]; }
+const PUNCT=/[\s，。！？、,.!?；;：:""''「」『』~～]/;
+function hanziSpans(text){
+  let mi=0, out='';
+  for(const ch of text){
+    if(PUNCT.test(ch)){ out+=`<span class="ch punct">${ch}</span>`; }
+    else { out+=`<span class="ch" data-mi="${mi}">${ch}</span>`; mi++; }
+  }
+  return out;
+}
+function lightChars(n){ document.querySelectorAll('#hanziBox .ch[data-mi]').forEach(s=>{ s.classList.toggle('lit',(+s.dataset.mi)<n); }); }
 
 function renderCards(){
   if(!deck.queue) buildDeck();
@@ -611,7 +669,7 @@ function renderCards(){
 
     <div class="card" id="recallCard" style="margin-top:16px;min-height:180px;display:flex;flex-direction:column;justify-content:center;">
       ${inRedo?'<div class="say-prompt">Try this one again! 🔁</div>':''}
-      <div class="hanzi zh ${isWord?'word':'sentence'}">${item.hanzi}</div>
+      <div class="hanzi zh ${isWord?'word':'sentence'}" id="hanziBox">${hanziSpans(item.hanzi)}</div>
       <div class="reveal ${deck.revealed?'show':''}">
         ${item.pinyin?`<div class="pinyin ${isWord?'word':'sentence'}">${item.pinyin}</div>`:''}
         ${item.en?`<div class="english">${item.en}</div>`:''}
@@ -639,6 +697,7 @@ function renderCards(){
     stopDeckMic(); flagMiss(); deck.revealed=true; render();
     say(item.hanzi, false, ()=>armDeckMic());   // resume listening once the panda finishes
   };
+  deck.sentProgress=0;
   armDeckMic(); // auto-start listening the moment the card shows
 }
 
@@ -651,24 +710,55 @@ function startDeckMic(){
   if(!micSupported || state.screen!=='cards' || deck.done || deck.listening) return;
   try{ recog.abort(); }catch(e){}
   deck.listening=true; deck.heard='';
+  const isSentence = deckCur().kind==='sentence';
+  recog.interimResults = isSentence;   // sentences: live word-by-word
+  recog.continuous = isSentence;       // sentences: don't cut him off
   const label=document.getElementById('micLabel'); if(label) label.textContent='Listening… say it!';
   const micEl=document.getElementById('micBtn'); if(micEl){ micEl.classList.add('listening'); micEl.textContent='👂'; }
   let handled=false;
+
+  if(isSentence){
+    const targetChars = normalize(deckCur().hanzi).split('');
+    const tp = targetChars.map(c=>toPinyin(c)||c);
+    const len = targetChars.length;
+    recog.onresult=(e)=>{
+      let heard=''; for(let i=0;i<e.results.length;i++) heard += e.results[i][0].transcript;
+      heard = normalize(heard);
+      let ti=deck.sentProgress||0;
+      for(let hi=0; hi<heard.length && ti<len; hi++){
+        if(heard[hi]===targetChars[ti] || toPinyin(heard[hi])===tp[ti]) ti++;
+      }
+      deck.sentProgress = Math.max(deck.sentProgress||0, ti);
+      lightChars(deck.sentProgress);
+      const ht=document.getElementById('heardTxt'); if(ht) ht.textContent = deck.sentProgress+' / '+len+' words';
+      if(deck.sentProgress>=len){ handled=true; stopDeckMic(); flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 700); }
+    };
+    recog.onerror=(ev)=>{
+      deck.listening=false; setMicIdle();
+      if(ev && (ev.error==='not-allowed'||ev.error==='service-not-allowed')){ const l=document.getElementById('micLabel'); if(l) l.textContent='Mic blocked — open in Chrome'; }
+      else setTimeout(armDeckMic, 500);
+    };
+    recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; setTimeout(armDeckMic, 250); } };
+    try{ recog.start(); }catch(e){ deck.listening=false; setTimeout(armDeckMic, 500); }
+    return;
+  }
+
+  // word mode: whole word, char or pronunciation match
   recog.onresult=(e)=>{
     handled=true; deck.listening=false;
     const alts=[]; for(let i=0;i<e.results[0].length;i++) alts.push(e.results[0][i].transcript);
-    const res=isMatch(deckCur().hanzi, alts);
+    const res=isMatch(deckCur().hanzi, alts, true);
     deck.heard='Heard: '+(alts[0]||'');
     const ht=document.getElementById('heardTxt'); if(ht) ht.textContent=deck.heard;
-    if(res.pass){ setMicIdle(); flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 900); }
-    else { flagMiss(); softTry(); flash('Not quite — say the whole thing 💪','try'); setMicIdle(); setTimeout(armDeckMic, 1100); } // keep listening, no full redraw
+    if(res.pass){ setMicIdle(); lightChars(99); flash('🎉 '+cheer(),'good'); setTimeout(recallAdvance, 900); }
+    else { flagMiss(); softTry(); flash('Not quite — try again 💪','try'); setMicIdle(); setTimeout(armDeckMic, 1100); }
   };
   recog.onerror=(ev)=>{
     deck.listening=false; setMicIdle();
     if(ev && (ev.error==='not-allowed'||ev.error==='service-not-allowed')){ const l=document.getElementById('micLabel'); if(l) l.textContent='Mic blocked — open in Chrome'; }
-    else setTimeout(armDeckMic, 800); // no-speech / aborted: keep listening
+    else setTimeout(armDeckMic, 800);
   };
-  recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; setTimeout(armDeckMic, 300); } }; // silence: re-listen, no redraw
+  recog.onend=()=>{ if(!handled && deck.listening){ deck.listening=false; setTimeout(armDeckMic, 300); } };
   try{ recog.start(); }catch(e){ deck.listening=false; setTimeout(armDeckMic, 500); }
 }
 function setMicIdle(){ const m=document.getElementById('micBtn'); if(m){ m.classList.remove('listening'); m.textContent='🎤'; } const l=document.getElementById('micLabel'); if(l) l.textContent='Listening… say it!'; }
@@ -681,16 +771,16 @@ function recallAdvance(){
   deck.revealed=false; deck.heard=''; deck.listening=false;
   if(deck.queue.length>0){
     if(deck.pos>=deck.queue.length) deck.pos=0;
-    render(); armDeckMic(); return;
+    saveSession(); render(); armDeckMic(); return;
   }
   // current pile cleared
   if(deck.phase==='first'){
-    if(deck.redo.length===0){ deck.done='clean'; saveStars(); render(); return; }
+    if(deck.redo.length===0){ deck.done='clean'; saveStars(); clearSession(); render(); return; }
     deck.phase='redo'; deck.queue=deck.redo.slice(); deck.redo=[]; deck.redoTotal=deck.queue.length; deck.pos=0;
-    flash('','');
+    flash('',''); saveSession();
     render(); armDeckMic(); return;
   }
-  deck.done='finished'; saveStars(); render();
+  deck.done='finished'; saveStars(); clearSession(); render();
 }
 
 /* ============ MIC FLOW ============ */
